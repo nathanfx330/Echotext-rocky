@@ -1,140 +1,181 @@
 # EchoText Rocky
 
-## Favorite Kokoro voices
+**Offline, CPU-only text-to-speech for Rocky Linux, powered by Kokoro ONNX.**
 
-Open **Settings → Voice** to browse and search the Kokoro voice bank.
-Use the star next to any voice in the picker, or star the current voice
-directly from Settings. Favorites always sort to the top, and **Starred only**
-filters the list. Favorites persist in SharedPreferences under
-`kokoro_favorite_voices` (stored as stable Kokoro voice IDs). On a fresh
-installation, `af_heart` starts starred; removing it stays removed after
-restarting. This feature does not change voice model files or the Conda runtime.
+[EchoText Rocky](https://github.com/nathanfx330/Echotext-rocky) is a separate
+Linux desktop port of the original [EchoText](https://github.com/nathanfx330/Echotext)
+Flutter application. The original repository is unchanged.
 
-## Kokoro migration: CPU-only runtime stage (Rocky 8.10)
+Kokoro is the **active speech engine**. Piper code is retained only as a
+legacy fallback for future development; the current UI does not use it.
 
-The primary TTS engine is now **Kokoro ONNX**. The original Piper service file
-remains in the repository as a possible future fallback but is not selected by
-the current UI.
+## Features
 
-From the repository root:
+- Full-quality Kokoro voices, synthesized locally on the CPU
+- Persistent Python worker: loads the model once for sentence playback
+- Read-along highlighting, read from cursor, and sentence navigation
+- Search, editing, undo, and text-cleanup tools
+- Save narration as PCM WAV, optionally with sentence-aligned SRT subtitles
+- Searchable Kokoro voice picker with **starred favorites** and a
+  **Starred only** filter
+- Favorite voices and reading settings saved between launches
 
-    git pull
-    bash scripts/setup-kokoro.sh
-    bash scripts/download-kokoro.sh
-    bash scripts/test-kokoro.sh
+SRT timestamps are derived from generated sentence audio. They are not
+word-level forced alignment and should be checked in an editor for final use.
 
-This uses a dedicated **Conda environment named `echotext-kokoro`** with Python 3.12. Packages are installed through `conda run -n echotext-kokoro python -m pip`, never through system Python, base Conda, or standalone venv. It requires no sudo, system Python upgrade, or NVIDIA/CUDA installation.
-See [the detailed Kokoro guide](docs/KOKORO.md).
+## Verified status
 
-**Status:** Full-quality Kokoro CPU synthesis and matching eSpeak NG
-library/data **were verified by a real user playback test on Rocky 8.10**.
-The Flutter integration has now been committed but **has not yet passed a
-Rocky Flutter build/runtime test**. The persistent Python worker, voice list,
-sentence playback, and WAV/SRT pipeline are connected in source.
+- **Rocky Linux 8.10 on x86_64:** Full-precision Kokoro speech was generated
+  and heard on the actual workstation, using ONNX Runtime's CPU provider.
+- **Phonemizer:** The worker selected Rocky's eSpeak NG library together
+  with the matching system dictionary, eliminating the earlier
+  `GLIBC_2.29` / `en_dict` incompatibility.
+- **Flutter GUI:** The user confirmed that Kokoro played successfully
+  through the desktop application.
+- **CI:** GitHub Actions' Rocky 8 container completed Flutter analysis,
+  tests, and a desktop release build on the Kokoro integration and
+  subsequent Favorites update.
+- **Still to verify on a real project:** Long-document handling and
+  sentence-aligned WAV/SRT export imported into DaVinci Resolve.
 
-### First run of the Kokoro-connected Flutter application
+These confirmations cover the Rocky workstation and CI configuration used
+during development; they are not a blanket guarantee for other distributions
+or arbitrary Conda/Python versions.
 
-From your `Echotext-rocky` directory with the existing
-`echotext-kokoro` Conda environment installed:
+## Requirements
+
+- Rocky Linux 8.10, x86_64 (the tested target)
+- A working Flutter Linux desktop SDK with Dart 3.11.3 or later
+- Conda
+- A local `echotext-kokoro` Conda environment containing Python 3.12
+  and CPU-only Kokoro dependencies
+- The `kokoro-v1.0.onnx` model and `voices-v1.0.bin` voice bank
+- eSpeak NG shared library **and matching pronunciation data**
+- GTK/GStreamer desktop dependencies for the Flutter application
+
+The successful workstation used an Intel Xeon E5-2667 v4, glibc 2.28,
+Flutter 3.44.6, and Python 3.12.13 inside Conda.
+
+**No CUDA, NVIDIA SDK, GPU flag, glibc replacement, or changes to system
+Python are necessary.** Never install Python packages in the system
+interpreter or Conda `base` for this project.
+
+## Install and run
+
+Run commands from the **repository root**. If you've already installed the
+Kokoro environment and downloaded the models, skip the setup and download
+steps and just run the app.
+
+```bash
+bash scripts/setup-kokoro.sh
+bash scripts/download-kokoro.sh
+bash scripts/test-kokoro.sh
+bash scripts/run-dev.sh
+```
+
+- `setup-kokoro.sh` creates or reuses the dedicated Conda environment
+  `echotext-kokoro` and runs pip **only inside that environment**.
+- `download-kokoro.sh` downloads the full-quality Kokoro ONNX model and
+  voice bank to the ignored `kokoro/` folder.
+- `test-kokoro.sh` generates `kokoro_test.wav` for listening, and will
+  **not overwrite** an existing test file by default. For a new smoke test,
+  set `KOKORO_TEST_WAV` to a different filename.
+- `run-dev.sh` launches the Flutter GUI. It does not install or activate
+  a Python environment itself. The app locates the dedicated Conda
+  interpreter when launching its child process.
+
+For a returning checkout:
 
 ```bash
 git pull
 bash scripts/run-dev.sh
 ```
 
-Try reading a sentence, switching the Kokoro voice, and exporting a short
-paragraph with Audio + SRT. For a release build, run
-`bash scripts/build.sh`; its bundle copies `scripts/kokoro_worker.py`
-and your local `kokoro/` model files. The Conda environment stays external.
+### Voice favorites
 
-If the app cannot locate Conda Python, set `ECHOTEXT_KOKORO_PYTHON` to the
-**Conda environment's** `bin/python` binary. If launched from an unusual
-working directory, set `ECHOTEXT_KOKORO_ROOT` to the project or bundle root.
+Open **Settings → Voice** to browse or search the available Kokoro voices.
+Click a voice to select it, or click its **star** to favorite it without
+changing the active voice. Starred voices sort first. Use **Starred only**
+to display your shortlist.
 
+On first use, `af_heart` is starred by default. Preferences are saved
+under the `kokoro_favorite_voices` key in SharedPreferences, using stable
+Kokoro voice IDs. If you unstar all voices, the list stays empty after
+relaunching.
 
----
+### WAV and SRT for DaVinci Resolve
 
+Paste narration, then use **Save Audio** and select **Audio + SRT**.
+Import the exported WAV as audio and SRT as subtitles in Resolve. This
+provides sentence-level navigation and a starting point for editing the
+narration. Check the timing and text against the audio before delivery.
 
-A separate, **CPU-only Rocky Linux desktop port** of [EchoText](https://github.com/nathanfx330/Echotext), based on the source as of `cd8b583` (April 24, 2026). The original repository has not been changed.
-
-Preserves: Flutter text editor, read-along highlighting, sentence jumping, Kokoro voice selection, cleanup tools, WAV export and sentence-aligned SRT subtitles.
-
-### Targets and constraints
-
-- **Rocky Linux 8.10**, x86_64, matching the development workstation; build and runtime confirmation require a real Rocky machine. Rocky 9/10 may also work but are not the current target.
-- Flutter Linux desktop SDK providing Dart **3.11.3+** (the upstream `pubspec.yaml` requirement).
-- **Original CPU Piper CLI** compatible with `--json-input` and `--output_file`; *not* an arbitrary newer Piper release.
-- No CUDA, NVIDIA toolkit, GPU toggle or driver changes.
-- Only Linux, Flutter app, test, and auxiliary reader files are carried over; mobile/Windows/macOS shells are deliberately omitted.
-
-### Get started (from repository root)
+### Release build
 
 ```bash
-bash scripts/rocky-setup.sh
-bash scripts/diagnose.sh
-```
-
-The setup installs build/audio development packages using `sudo dnf` and **may upgrade already-installed system packages**, as DNF did on the initial Rocky 8.10 test. Run it only when needed. It does **not** install Flutter, Piper or NVIDIA/CUDA dependencies. The tested Rocky machine already has Flutter 3.44.6 and Dart 3.12.2.
-
-### Install the original CPU Piper runtime locally
-
-The original Piper project has an archived Linux x86_64 CPU distribution. Install it into the repository's local `piper/` directory (no system-wide installation):
-
-```bash
-bash scripts/install-piper-cpu.sh
-bash scripts/diagnose.sh
-```
-
-This installer uses the official [Piper 2023.11.14-2 release](https://github.com/rhasspy/piper/releases/tag/2023.11.14-2). On Rocky 8, its ELF/shared-library compatibility **still must be checked** with `ldd` and synthesis. If it fails, do not replace the system glibc: we'll build a CPU-compatible Piper on Rocky 8 instead. You can also provide your already-working Piper directory instead of downloading a new copy.
-
-### Use your existing voices
-
-Neither Piper nor voice models are kept in Git. Copy a known-working original CPU Piper runtime, including its shipped shared libraries and `espeak-ng-data`, and your existing voices into:
-
-```text
-piper/
-  piper
-  lib/                  # if present in distribution
-  espeak-ng-data/
-model/
-  my_voice/
-    voice.onnx
-    voice.onnx.json
-```
-
-Models directly inside `model/` are supported too. Keep each `.onnx.json` beside its `.onnx`. You may also set `ECHOTEXT_PIPER` and `ECHOTEXT_MODEL_DIR` to point to an external executable or model directory.
-
-The initial Rocky diagnostics found **no models** in `model/`. Locate your existing models (e.g., `find "$HOME" -type f -name '*.onnx' -print`) and copy each model and its JSON config under `model/`, or set `ECHOTEXT_MODEL_DIR` to the containing folder.
-
-```bash
-chmod +x piper/piper
-bash scripts/diagnose.sh
-bash scripts/smoke-test-piper.sh
-```
-
-The smoke test generates a short temporary WAV using **CPU synthesis** and deletes it when finished. A successful `ldd` by itself does not prove synthesis works. If you encounter `GLIBC_...` or `lib*.so not found` errors, use a Rocky-compatible CPU Piper build instead of replacing the system glibc.
-
-### Run and build
-
-```bash
-bash scripts/run-dev.sh
 bash scripts/build.sh
 ```
 
-Release artifact: `build/linux/x64/release/bundle/echotext`. The build bundles the contents of `piper/` and `model/` when supplied before release compilation. A source-only build without local voices cannot speak until you add them.
+Release executable:
+`build/linux/x64/release/bundle/echotext`.
 
-### Differences from upstream
+The Linux bundle includes the Kokoro worker script and, if present at
+build time, the local `kokoro/` model and voice files. **It does not
+bundle Python or the Conda environment.** The target machine must have
+the `echotext-kokoro` environment installed separately.
 
-- GPU option removed from settings and no `--cuda` CLI flag is passed.
-- Older saved GPU preferences ignored.
-- Local Piper library paths are passed only to Piper's child process, not to the system.
-- Model scanning supports a direct `model/*.onnx` voice, in addition to one-level folders.
-- First checkout can compile without a bundled Piper executable or models.
-- Rocky dependency installer and explicit diagnostics/synthesis smoke test.
-- Replaces the upstream Flutter template's stale counter widget test with actual text utility tests.
+For unusual installations or bundle launch paths, set:
 
-### Status and provenance
+- `ECHOTEXT_KOKORO_PYTHON`: the dedicated Conda environment's
+  `bin/python`, not system Python
+- `ECHOTEXT_KOKORO_ROOT`: project or release-bundle root containing
+  `scripts/kokoro_worker.py` and `kokoro/`
+- `ECHOTEXT_ESPEAK_LIB` and `ECHOTEXT_ESPEAK_DATA`: **both** paths
+  for a matching eSpeak NG shared library and dictionary data, if the
+  autodetection cannot locate a compatible pair
 
-Source has been ported for Rocky 8.10. The CI workflow targets `rockylinux:8` and Flutter 3.44.6. **No successful Rocky compilation or Piper execution is asserted.** Run the diagnostics, smoke test, and Flutter tests on your Rocky workstation to verify native dependencies.
+See [the Kokoro runtime guide](docs/KOKORO.md) for diagnostics and the
+Rocky 8 phonemizer fix.
 
-EchoText upstream is MIT licensed, copyright (c) 2026 Nathaniel Westveer.
+## Rocky native setup (only if needed)
+
+A workstation that already builds and launches EchoText does **not** need
+to rerun the native setup script.
+
+```bash
+bash scripts/diagnose.sh
+```
+
+`scripts/rocky-setup.sh` installs GTK, GStreamer, and build dependencies
+using **sudo dnf**, and **may upgrade existing system packages**. It was
+needed during the initial port, but is not part of normal Kokoro runtime
+setup. Review it before using it on a working Resolve workstation.
+
+## Legacy Piper fallback (not active)
+
+The port initially carried forward the original Piper CPU engine.
+`lib/services/piper_service.dart` and related diagnostic and installation
+scripts remain in the repository for reference. **The current Flutter UI
+uses Kokoro, not Piper**, and Piper assets are not required to launch it.
+
+Developers working on a future optional Piper fallback can use:
+
+- `scripts/install-piper-cpu.sh` for the old Piper CLI archive
+- `scripts/smoke-test-piper.sh` to check an installed Piper runtime
+- `piper/` for the legacy executable and its private libraries
+- `model/` for Piper `.onnx` voice files and adjacent `.onnx.json`
+  configurations
+
+Piper's models are **not interchangeable** with Kokoro's `kokoro-v1.0.onnx`
+and `voices-v1.0.bin`. The old Piper binaries still require their own
+Rocky compatibility checks. Do not modify system glibc to make them run.
+
+## Provenance and license
+
+EchoText Rocky was initially ported from the upstream EchoText source
+revision `cd8b583` (April 24, 2026), then migrated to Kokoro ONNX.
+The original repository has not been changed by the Rocky work.
+
+The upstream EchoText project is MIT licensed. See the repository's
+license file for terms. Kokoro and its third-party dependencies have
+their own applicable licenses.

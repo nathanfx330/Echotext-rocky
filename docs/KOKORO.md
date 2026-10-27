@@ -1,78 +1,130 @@
-# Kokoro on Rocky Linux 8.10
+# Kokoro CPU runtime on Rocky Linux 8.10
 
-## Runtime compatibility and stage
+This document covers the **current, working Kokoro engine** used by
+EchoText Rocky. The user confirmed successful Kokoro speech synthesis
+and playback inside the Flutter desktop application.
 
-Development machine (Oct 26, 2026): Rocky Linux 8.10, glibc 2.28,
-Intel Xeon E5-2667 v4 (AVX2), 62 GiB RAM, Python 3.12.13 and 3.11.13,
-Conda installed, Flutter 3.44.6 / Dart 3.12.2.
-No Python or graphics driver changes are required.
+## Tested environment
 
-The Kokoro ONNX 0.6.1 Python package requires Python >=3.10,<3.14.
-ONNX Runtime 1.23.2 publishes x86_64 CPython 3.12 wheels tagged for
-glibc 2.27/2.28, and espeakng-loader 0.2.4 has a compatible manylinux
-wheel. These are package compatibility claims, not a successful Rocky
-runtime test.
+- Rocky Linux 8.10, x86_64, glibc 2.28
+- Intel Xeon E5-2667 v4, AVX2, 62 GiB RAM
+- Flutter 3.44.6 and Dart 3.12.2
+- Conda-managed Python 3.12 (`echotext-kokoro`)
+- `kokoro-onnx==0.6.1` with CPU ONNX Runtime 1.23.2
+- `kokoro-v1.0.onnx` full-precision model and `voices-v1.0.bin`
+- Rocky's eSpeak NG 1.49.2 shared library with its matching system data
 
-## CPU-only smoke test (from project root)
+This is a validated configuration on one Rocky 8 workstation.
+Actual inference, intelligible WAV output, and Flutter GUI playback
+were tested. The remaining application-level check is long-document
+narration and exported WAV/SRT timing in a Resolve timeline.
 
-    git pull
-    bash scripts/setup-kokoro.sh
-    bash scripts/download-kokoro.sh
-    bash scripts/test-kokoro.sh
+## Setup (Conda only)
 
-The setup uses **Conda exclusively for environment management**. It creates
-(or reuses) a dedicated named environment, `echotext-kokoro`, containing
-Python 3.12 and pip. Python packages are installed **only** by executing
-`conda run -n echotext-kokoro python -m pip install ...`. The script
-verifies the interpreter's Conda prefix before installation, so pip is never
-run in the Rocky system Python or Conda base. No sudo, dnf, CUDA or
-changes to DaVinci Resolve.
-
-The download fetches the full-precision 326 MB kokoro-v1.0.onnx model
-and 28 MB voices-v1.0.bin voice bank from the official model-files-v1.1
-release. Both are excluded from Git and preserved on repeated runs.
-
-The test generates a PCM 16-bit WAV as `kokoro_test.wav` in the project directory for listening.
-Success requires importing the Python packages, loading ONNX + voices,
-performing CPU inference, and writing a nonempty file.
-
-## Integration: not done yet
-
-The initial scripts/kokoro_worker.py implements a persistent JSON-lines
-process with commands "voices" and "synthesize". This avoids reloading
-the ONNX model for every sentence. Run it from the dedicated Conda environment:
-
-    conda run --no-capture-output -n echotext-kokoro python -u scripts/kokoro_worker.py --serve
-
-Flutter integration must launch the interpreter from this same Conda
-environment. Do not use `/usr/bin/python3` or assume Conda base.
-
-Next: implement Dart KokoroService lifecycle, integrate into Flutter,
-preserve highlighting, sentence navigation, WAV/SRT export, and add
-an engine/voice selection setting. Piper stays optional and isolated.
-
-## Primary sources
-
-- https://github.com/thewh1teagle/kokoro-onnx/blob/main/pyproject.toml
-- https://github.com/thewh1teagle/kokoro-onnx/blob/main/examples/save.py
-- https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.1
-
-## Environment policy
-
-Do not install Kokoro packages into `base`, the Rocky system Python, or a standalone `venv`. All Python package actions belong in the `echotext-kokoro` Conda environment. Earlier `.venv-kokoro` setup instructions have been superseded.
-
-## Rocky 8 phonemizer fix (after first real WAV test)
-
-The first live test did produce 24 kHz mono audio, but the bundled `espeakng-loader` library required `GLIBC_2.29`, unavailable on Rocky 8 (glibc 2.28). Kokoro automatically fell back to a system library while still using incompatible bundled pronunciation data, producing `Bad rules data in 'en_dict'`.
-
-The worker now selects a matching eSpeak NG shared library **and its associated dictionary folder** rather than silently mixing them. It **fails closed** if it cannot find a safe pair. It checks the Conda environment first, then installed Rocky paths. For unusual installations, set *both* `ECHOTEXT_ESPEAK_LIB` and `ECHOTEXT_ESPEAK_DATA` to the correct pair. Never change system glibc.
-
-From the repository root:
+From the project root:
 
 ```bash
-git pull
-bash scripts/diagnose-espeak.sh
+bash scripts/setup-kokoro.sh
+bash scripts/download-kokoro.sh
 bash scripts/test-kokoro.sh
+bash scripts/run-dev.sh
 ```
 
-A successful test now saves `kokoro_test.wav` in the current project directory rather than immediately deleting it, so the phoneme quality can be checked by listening. It will not overwrite an existing WAV without an explicit `KOKORO_TEST_WAV` name or `KOKORO_OVERWRITE_TEST=1`. If the diagnostic doesn't find a matching eSpeak NG library + data, report the output; we can install/build the pair **within the dedicated Conda environment**, not system wide.
+`setup-kokoro.sh` creates or reuses the dedicated
+`echotext-kokoro` Conda environment with Python 3.12. It installs pip
+packages only by calling `conda run -n echotext-kokoro python -m pip`.
+It verifies the interpreter's Conda prefix before the pip step.
+It never installs packages into system Python or Conda `base`.
+
+`download-kokoro.sh` fetches the full-precision ONNX model and voice
+bank into `kokoro/`. Models and voices are not committed to Git.
+
+`test-kokoro.sh` saves a PCM, 24 kHz, mono WAV
+(`kokoro_test.wav`) in the current project directory. It refuses to
+overwrite an existing test WAV unless you explicitly choose another
+output with `KOKORO_TEST_WAV` or set
+`KOKORO_OVERWRITE_TEST=1`.
+
+If the application is already working, no reinstall or new downloads
+are needed. Simply run `git pull` and `bash scripts/run-dev.sh`.
+
+## Rocky 8 eSpeak NG compatibility
+
+During initial testing the `espeakng-loader` wheel's embedded
+`libespeak-ng.so` required `GLIBC_2.29`, but Rocky 8 ships glibc
+2.28. The fallback system shared library then printed
+`Bad rules data in 'en_dict'` because the phonemizer paired
+incompatible library and dictionary versions.
+
+The worker was changed to select the **same-version library and
+pronunciation-data directory together**. On the tested machine it uses:
+
+```text
+/usr/lib64/libespeak-ng.so.1
+/usr/share/espeak-ng-data
+```
+
+After this change the smoke test generated audio without either
+previous error, and the user confirmed the speech sounded correct.
+
+Inspect local paths without changing the system:
+
+```bash
+bash scripts/diagnose-espeak.sh
+```
+
+If autodetection fails, set **both**
+`ECHOTEXT_ESPEAK_LIB` and `ECHOTEXT_ESPEAK_DATA` to a matching
+library/data pair. Do not replace system glibc or mix the bundled
+pronunciation files with an older shared library.
+
+## How Flutter talks to Kokoro
+
+`lib/services/kokoro_service.dart` launches
+`scripts/kokoro_worker.py` with the Python interpreter from the
+**dedicated Conda environment**. The worker loads the ONNX model
+and voice bank once, explicitly chooses `CPUExecutionProvider`,
+then communicates with Flutter over JSON Lines.
+
+Supported worker messages include:
+
+```json
+{"id":1,"cmd":"voices"}
+{"id":2,"cmd":"synthesize","text":"Hello from EchoText.","voice":"af_heart","speed":1.0,"path":"/tmp/narration.wav"}
+```
+
+The worker responds with voice IDs or the WAV path, sample rate, and
+byte count (or an error). EchoText plays sentence WAVs, precaches
+the next sentence, and can stitch the outputs into a narration WAV
+with a sentence-aligned SRT.
+
+For direct inspection, the worker can be launched using:
+
+```bash
+conda run --no-capture-output -n echotext-kokoro python -u scripts/kokoro_worker.py --serve
+```
+
+The app is Kokoro-first. The old Piper service source is retained
+for possible future fallback, but is not used by the current UI.
+Voice favorites, including the initial `af_heart` star, are
+stored in Flutter SharedPreferences.
+
+## Build and packaging
+
+```bash
+bash scripts/build.sh
+```
+
+The Linux bundle includes the worker script and installed Kokoro
+model files, but **not** the Conda Python interpreter or packages.
+The target machine needs its own compatible
+`echotext-kokoro` environment.
+
+For paths outside the normal checkout, the Flutter service accepts
+`ECHOTEXT_KOKORO_ROOT` and `ECHOTEXT_KOKORO_PYTHON`.
+
+## References
+
+- [Kokoro ONNX](https://github.com/thewh1teagle/kokoro-onnx)
+- [Kokoro ONNX release models](https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.1)
+- [Example synthesis code](https://github.com/thewh1teagle/kokoro-onnx/blob/main/examples/save.py)
