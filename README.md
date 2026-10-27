@@ -19,6 +19,9 @@ legacy fallback for future development; the current UI does not use it.
 - Searchable Kokoro voice picker with **starred favorites** and a
   **Starred only** filter
 - Favorite voices and reading settings saved between launches
+- Lossless sentence splitting for decimals, URLs, abbreviations and closing quotes
+- Adjustable additional silence (300 ms between sentences, 650 ms for blank-line paragraphs by default)
+- Restart engine action if the Python worker exits unexpectedly
 
 SRT timestamps are derived from generated sentence audio. They are not
 word-level forced alignment and should be checked in an editor for final use.
@@ -105,10 +108,21 @@ relaunching.
 
 ### WAV and SRT for DaVinci Resolve
 
+The sentence and paragraph pause controls are in Settings. These pauses are
+**additional** to Kokoro's natural silence. The export writes silence into
+the WAV before the following sentence and adjusts SRT timestamps accordingly.
+Paragraph boundaries require a blank line in the text.
+
 Paste narration, then use **Save Audio** and select **Audio + SRT**.
 Import the exported WAV as audio and SRT as subtitles in Resolve. This
 provides sentence-level navigation and a starting point for editing the
 narration. Check the timing and text against the audio before delivery.
+
+### Language support
+
+The verified narration workflow is English. Japanese and Chinese voices
+currently use the worker's eSpeak phoneme path rather than a dedicated
+Misaki G2P path; pronunciation quality is not validated for those languages.
 
 ### Release build
 
