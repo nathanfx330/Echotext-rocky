@@ -20,11 +20,13 @@ runtime test.
     bash scripts/download-kokoro.sh
     bash scripts/test-kokoro.sh
 
-The setup creates .venv-kokoro with the existing python3.12 (not the
-/usr/bin/python3 3.6.8 interpreter), and installs only CPU ONNX Runtime.
-No sudo, no dnf, no CUDA, no modification to base Conda, and no changes
-to DaVinci Resolve. If venv is unavailable, create a local Conda prefix
-with Python 3.12 and pip, then rerun setup.
+The setup uses **Conda exclusively for environment management**. It creates
+(or reuses) a dedicated named environment, `echotext-kokoro`, containing
+Python 3.12 and pip. Python packages are installed **only** by executing
+`conda run -n echotext-kokoro python -m pip install ...`. The script
+verifies the interpreter's Conda prefix before installation, so pip is never
+run in the Rocky system Python or Conda base. No sudo, dnf, CUDA or
+changes to DaVinci Resolve.
 
 The download fetches the full-precision 326 MB kokoro-v1.0.onnx model
 and 28 MB voices-v1.0.bin voice bank from the official model-files-v1.1
@@ -38,7 +40,12 @@ performing CPU inference, and writing a nonempty file.
 
 The initial scripts/kokoro_worker.py implements a persistent JSON-lines
 process with commands "voices" and "synthesize". This avoids reloading
-the ONNX model for every sentence.
+the ONNX model for every sentence. Run it from the dedicated Conda environment:
+
+    conda run --no-capture-output -n echotext-kokoro python -u scripts/kokoro_worker.py --serve
+
+Flutter integration must launch the interpreter from this same Conda
+environment. Do not use `/usr/bin/python3` or assume Conda base.
 
 Next: implement Dart KokoroService lifecycle, integrate into Flutter,
 preserve highlighting, sentence navigation, WAV/SRT export, and add
@@ -49,3 +56,7 @@ an engine/voice selection setting. Piper stays optional and isolated.
 - https://github.com/thewh1teagle/kokoro-onnx/blob/main/pyproject.toml
 - https://github.com/thewh1teagle/kokoro-onnx/blob/main/examples/save.py
 - https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.1
+
+## Environment policy
+
+Do not install Kokoro packages into `base`, the Rocky system Python, or a standalone `venv`. All Python package actions belong in the `echotext-kokoro` Conda environment. Earlier `.venv-kokoro` setup instructions have been superseded.

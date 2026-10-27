@@ -12,8 +12,7 @@ From the repository root:
     bash scripts/download-kokoro.sh
     bash scripts/test-kokoro.sh
 
-This uses the **existing Python 3.12** in a local .venv-kokoro folder.
-It requires no sudo, system Python upgrade, or NVIDIA/CUDA installation.
+This uses a dedicated **Conda environment named `echotext-kokoro`** with Python 3.12. Packages are installed through `conda run -n echotext-kokoro python -m pip`, never through system Python, base Conda, or standalone venv. It requires no sudo, system Python upgrade, or NVIDIA/CUDA installation.
 See [the detailed Kokoro guide](docs/KOKORO.md).
 
 **Status:** worker and setup scripts committed; actual synthesis on Rocky
