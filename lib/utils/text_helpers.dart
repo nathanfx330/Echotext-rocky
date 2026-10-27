@@ -1,19 +1,90 @@
 class TextHelpers {
-  /// Splits a large block of text into playback chunks (sentences/paragraphs)
-  /// Uses negative lookbehinds to ignore common abbreviations (Mr., Dr., etc.)
-  /// so they don't cause unnatural audio pauses or rapid subtitle flashing.
+  /// Lossless sentence chunks. Every input character belongs to exactly one
+  /// chunk, which keeps editor offsets and read-along highlighting correct.
+  /// A period is a terminator only before whitespace/end, not inside decimal
+  /// numbers, hostnames or acronyms such as U.S.
   static List<String> splitIntoSentences(String text) {
     if (text.isEmpty) return [];
 
-    final RegExp sentenceRegex = RegExp(
-      r'.*?(?<!\bMr|\bMrs|\bMs|\bDr|\bProf|\bSr|\bJr|\be\.g|\bi\.e|\bvs|\bU\.S|\bU\.S\.A|\binc|\bcorp|\bst)[.!?\n]+|.+',
-      caseSensitive: false,
-    );
-    
-    final Iterable<Match> matches = sentenceRegex.allMatches(text);
-    // We do NOT trim the strings here. The HighlightingTextEditingController 
-    // needs the exact whitespace to map the highlights back to the original text length.
-    return matches.map((m) => m.group(0)!).toList();
+    final pieces = <String>[];
+    var start = 0;
+    var i = 0;
+
+    while (i < text.length) {
+      final char = text[i];
+
+      // Newlines without punctuation also end playback chunks.
+      if (char == '\n' || char == '\r') {
+        final end = _consumeWhitespace(text, i + 1);
+        pieces.add(text.substring(start, end));
+        start = end;
+        i = end;
+        continue;
+      }
+
+      if (char == '.' || char == '?' || char == '!') {
+        var end = i + 1;
+        // Keep punctuation clusters and closing quotes/brackets in one chunk.
+        while (end < text.length &&
+            (text[end] == '.' || text[end] == '?' || text[end] == '!')) {
+          end++;
+        }
+        while (end < text.length &&
+            _isClosingPunctuation(text[end])) {
+          end++;
+        }
+
+        // If immediately followed by letters/digits, this is not a stop:
+        // e.g. 3.5%, nathanielwestveer.com, U.S.
+        if (end == text.length || _isWhitespace(text[end])) {
+          final isProtectedDot = char == '.' &&
+              _abbreviation.hasMatch(text.substring(start, i + 1));
+          if (!isProtectedDot) {
+            final nextStart = _consumeWhitespace(text, end);
+            pieces.add(text.substring(start, nextStart));
+            start = nextStart;
+            i = nextStart;
+            continue;
+          }
+        }
+      }
+      i++;
+    }
+
+    if (start < text.length) pieces.add(text.substring(start));
+    return pieces;
+  }
+
+  static final RegExp _abbreviation = RegExp(
+    r'(?<![A-Za-z])(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|e\.g|i\.e|vs|U\.S|U\.S\.A|inc|corp|st)\.$',
+    caseSensitive: false,
+  );
+
+  static bool _isWhitespace(String c) =>
+      c == ' ' || c == '\t' || c == '\n' || c == '\r';
+
+  static bool _isClosingPunctuation(String c) =>
+      c == '"' || c == '\u201D' || c == '\u2019' || c == "'" ||
+      c == ')' || c == ']';
+
+  static int _consumeWhitespace(String text, int index) {
+    while (index < text.length && _isWhitespace(text[index])) {
+      index++;
+    }
+    return index;
+  }
+
+  /// Return the *additional silence* inserted after this chunk.
+  /// Two or more logical newlines denote a paragraph break; ordinary
+  /// single newlines use the sentence gap. Both playback and WAV/SRT export
+  /// call this same function so the pauses are configured consistently.
+  static int pauseAfterChunk(
+    String chunk, {
+    required int sentenceGapMs,
+    required int paragraphGapMs,
+  }) {
+    final paragraph = RegExp(r'\r?\n[ \t]*\r?\n').hasMatch(chunk);
+    return paragraph ? paragraphGapMs : sentenceGapMs;
   }
 
   /// Strips AI markdown, bolding, headers, and optionally special characters/emojis
@@ -26,7 +97,7 @@ class TextHelpers {
     
     currentText = currentText.replaceAll(RegExp(r'\*\*|\*|__|_'), '');
     currentText = currentText.replaceAll(RegExp(r'###|##|#'), '');
-    currentText = currentText.replaceAll(RegExp(r'^\s*Sure[!,]?\s*.*?:', multiLine: true, caseSensitive: false), '');
+    currentText = currentText.replaceAll(RegExp(r'^\s*Sure\b[!,]?\s*.*?:', multiLine: true, caseSensitive: false), '');
     
     return currentText;
   }
