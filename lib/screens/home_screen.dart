@@ -4,12 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../models/voice_model.dart';
-import '../services/piper_service.dart';
+import '../services/kokoro_service.dart';
 import '../controllers/highlighting_text_controller.dart';
 import '../utils/text_helpers.dart';
 import '../widgets/dialogs/magic_cleaner_dialog.dart';
@@ -39,7 +38,7 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
   Timer? _searchDebounceTimer; 
 
   late SharedPreferences _prefs;
-  final PiperService _piperService = PiperService();
+  final KokoroService _kokoroService = KokoroService();
 
   bool _isGenerating = false;
   bool _isPlaying = false;
@@ -59,11 +58,10 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
   int _currentChunkIndex = -1;
   int _playbackId = 0; 
   
-  String _modelPath = '';
+  String _voiceId = '';
   VoiceModel? _selectedVoice;
   double _speechSpeed = 1.0;
-  int _speakerId = 0;
-  bool _useGpu = false;
+  String? _engineError;
 
   @override
   void initState() {
@@ -73,13 +71,16 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
 
   Future<void> _initApp() async {
     _prefs = await SharedPreferences.getInstance();
-    await _piperService.init();
+    try {
+      await _kokoroService.init();
+    } catch (error) {
+      _engineError = error.toString();
+      debugPrint('Kokoro initialization failed: ' + _engineError!);
+    }
 
     _textController.text = _prefs.getString('saved_text') ?? '';
     _lastSavedText = _textController.text;
     _speechSpeed = _prefs.getDouble('speech_speed') ?? 1.0;
-    _speakerId = _prefs.getInt('speaker_id') ?? 0;
-    _useGpu = false; // CPU-only, regardless of saved preferences.
 
     _textController.addListener(() {
       if (_textController.text != _lastSavedText) {
@@ -97,19 +98,17 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
       }
     });
 
-    final savedModel = _prefs.getString('custom_model_path');
-    if (savedModel != null && File(savedModel).existsSync()) {
-      _modelPath = savedModel;
-      try {
-        _selectedVoice = _piperService.availableVoices.firstWhere((v) => v.path == _modelPath);
-      } catch (e) {
-        final custom = VoiceModel(name: 'Custom (${p.basename(_modelPath)})', path: _modelPath);
-        _piperService.availableVoices.insert(0, custom);
-        _selectedVoice = custom;
-      }
-    } else if (_piperService.availableVoices.isNotEmpty) {
-      _modelPath = _piperService.availableVoices.first.path;
-      _selectedVoice = _piperService.availableVoices.first;
+    final voices = _kokoroService.availableVoices;
+    if (voices.isNotEmpty) {
+      final savedVoice = _prefs.getString('kokoro_voice');
+      _selectedVoice = voices.firstWhere(
+        (voice) => voice.path == savedVoice,
+        orElse: () => voices.firstWhere(
+          (voice) => voice.path == 'af_heart',
+          orElse: () => voices.first,
+        ),
+      );
+      _voiceId = _selectedVoice!.path;
     }
 
     if (mounted) setState(() {});
@@ -123,7 +122,7 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
     _textFocusNode.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
-    _piperService.dispose();
+    _kokoroService.dispose();
     super.dispose();
   }
 
@@ -242,7 +241,7 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
   }
 
   Future<void> _startPlaybackFromCursor() async {
-    if (!_piperService.isInitialized) return;
+    if (!_kokoroService.isInitialized) return;
 
     final text = _textController.text.trim();
     if (text.isEmpty) {
@@ -250,13 +249,10 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
       return;
     }
 
-    if (!File(_piperService.exePath).existsSync()) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not find Piper at: ${_piperService.exePath}')));
-      return;
-    }
-
-    if (!File(_modelPath).existsSync()) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid model path. Please select one in Settings.')));
+    if (!_kokoroService.availableVoices.any((voice) => voice.path == _voiceId)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kokoro voice unavailable. Check Settings.')),
+      );
       return;
     }
 
@@ -271,7 +267,7 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
     final currentPlaybackId = ++_playbackId;
 
     if (_isPlaying || _isGenerating) {
-      await _piperService.stop();
+      await _kokoroService.stop();
     }
 
     if (_textChunks.isEmpty) return;
@@ -286,12 +282,10 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
     });
 
     try {
-      await _piperService.playChunks(
+      await _kokoroService.playChunks(
         _textChunks,
-        modelPath: _modelPath,
+        voice: _voiceId,
         speed: _speechSpeed,
-        speakerId: _speakerId,
-        useGpu: _useGpu,
         startIndex: startIndex,
         onChunkStart: (idx) {
           if (mounted && _playbackId == currentPlaybackId) {
@@ -329,7 +323,7 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
       
       _syncCursorToCurrentChunk();
       
-      await _piperService.stop();
+      await _kokoroService.stop();
       
       setState(() {
         _isPlaying = false;
@@ -347,7 +341,7 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
   }
 
   Future<void> _handleSaveAudio() async {
-    if (!_piperService.isInitialized || _isGenerating) return;
+    if (!_kokoroService.isInitialized || _isGenerating) return;
 
     final text = _textController.text.trim();
     if (text.isEmpty) {
@@ -355,8 +349,10 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
       return;
     }
 
-    if (!File(_piperService.exePath).existsSync() || !File(_modelPath).existsSync()) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Piper executable or model not found. Check settings.')));
+    if (!_kokoroService.availableVoices.any((voice) => voice.path == _voiceId)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kokoro voice unavailable. Check Settings.')),
+      );
       return;
     }
 
@@ -371,7 +367,7 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
           backgroundColor: const Color(0xFF1E1E1E),
           title: const Text('Generate Subtitles?'),
           content: const Text(
-            'Do you want to generate a perfectly timed .srt subtitle file alongside your audio?\n\n'
+            'Do you want to generate a sentence-aligned .srt subtitle file alongside your audio?\n\n'
             'Note: This takes slightly longer as the audio is generated and mathematically stitched sentence-by-sentence.',
           ),
           actions: [
@@ -421,15 +417,13 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
       // ALWAYS chunk the text! This gives us VAD safety, memory safety, and the ETA bar!
       List<String> chunksForExport = TextHelpers.splitIntoSentences(text);
 
-      bool success = await _piperService.generateToFile(
+      bool success = await _kokoroService.generateToFile(
         text,
         outputFile,
-        modelPath: _modelPath,
+        voice: _voiceId,
         speed: _speechSpeed,
-        speakerId: _speakerId,
-        useGpu: _useGpu,
         exportChunks: chunksForExport,
-        isSubtitlesRequested: generateSubtitles, // True or False, piper_service handles it
+        isSubtitlesRequested: generateSubtitles, // Kokoro service handles WAV and SRT
         onProgress: (current, total, eta) {
           if (mounted) {
             setState(() {
@@ -476,39 +470,6 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
     }
   }
 
-  Future<void> _pickCustomModel() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['onnx'],
-        dialogTitle: 'Select Piper ONNX Model');
-
-    if (result != null && result.files.single.path != null) {
-      final pickedPath = result.files.single.path!;
-      
-      setState(() {
-        _modelPath = pickedPath;
-        try {
-          _selectedVoice = _piperService.availableVoices.firstWhere((v) => v.path == _modelPath);
-        } catch (e) {
-          final customVoice = VoiceModel(
-            name: 'Custom (${p.basename(_modelPath)})', 
-            path: _modelPath
-          );
-          _piperService.availableVoices.insert(0, customVoice);
-          _selectedVoice = customVoice;
-        }
-      });
-      
-      await _prefs.setString('custom_model_path', _modelPath);
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Model updated successfully!')),
-        );
-      }
-    }
-  }
-
   void _showSettingsSheet() {
     showModalBottomSheet(
       context: context,
@@ -518,30 +479,20 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
         return StatefulBuilder(builder: (context, setSheetState) {
           return SettingsSheet(
             selectedVoice: _selectedVoice,
-            availableVoices: _piperService.availableVoices,
+            availableVoices: _kokoroService.availableVoices,
             speechSpeed: _speechSpeed,
-            speakerId: _speakerId,
-            onVoiceSelected: (newVoice) {
+                onVoiceSelected: (newVoice) {
               setSheetState(() => _selectedVoice = newVoice);
               setState(() {
                 _selectedVoice = newVoice;
-                _modelPath = newVoice.path;
+                _voiceId = newVoice.path;
               });
-              _prefs.setString('custom_model_path', newVoice.path);
+              _prefs.setString('kokoro_voice', newVoice.path);
             },
             onSpeedChanged: (val) {
               setSheetState(() => _speechSpeed = val);
               setState(() => _speechSpeed = val);
               _prefs.setDouble('speech_speed', val);
-            },
-            onSpeakerIdChanged: (val) {
-              setSheetState(() => _speakerId = val);
-              setState(() => _speakerId = val);
-              _prefs.setInt('speaker_id', val);
-            },
-            onPickCustomModel: () async {
-              await _pickCustomModel();
-              setSheetState(() {});
             },
           );
         });
@@ -551,7 +502,7 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isButtonDisabled = !_piperService.isInitialized || (_textController.text.trim().isEmpty && !_isPlaying && !_isGenerating);
+    final isButtonDisabled = !_kokoroService.isInitialized || (_textController.text.trim().isEmpty && !_isPlaying && !_isGenerating);
     final isSaveDisabled = isButtonDisabled || _isGenerating || _isPlaying;
 
     return Shortcuts(
@@ -572,7 +523,7 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
         },
         child: Scaffold(
           appBar: AppBar(
-            title: const Text('EchoText', style: TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+            title: const Text('EchoText · Kokoro', style: TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.5)),
             centerTitle: false,
             actions: [
               IconButton(
@@ -641,6 +592,14 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
             padding: const EdgeInsets.only(left: 32.0, top: 16.0, right: 32.0, bottom: 24.0),
             child: Column(
               children: [
+                if (_engineError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Text(
+                      'Kokoro startup error: ' + _engineError!,
+                      style: const TextStyle(color: Colors.orangeAccent),
+                    ),
+                  ),
                 if (_isSearching)
                   SearchBarHeader(
                     searchController: _searchController,
