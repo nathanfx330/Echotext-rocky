@@ -22,11 +22,13 @@ class TextHelpers {
         continue;
       }
 
-      if (char == '.' || char == '?' || char == '!') {
+      if (char == '.' || char == '?' || char == '!' || char == '\u2026') {
         var end = i + 1;
-        // Keep punctuation clusters and closing quotes/brackets in one chunk.
+        // Keep punctuation clusters (including Unicode ellipsis) and closing
+        // quotes/brackets in one chunk.
         while (end < text.length &&
-            (text[end] == '.' || text[end] == '?' || text[end] == '!')) {
+            (text[end] == '.' || text[end] == '?' || text[end] == '!' ||
+             text[end] == '\u2026')) {
           end++;
         }
         while (end < text.length &&
@@ -56,7 +58,7 @@ class TextHelpers {
   }
 
   static final RegExp _abbreviation = RegExp(
-    r'(?<![A-Za-z])(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|e\.g|i\.e|vs|U\.S|U\.S\.A|inc|corp|st)\.$',
+    r'(?<![A-Za-z0-9])(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|e\.g|i\.e|vs|U\.S|U\.S\.A|inc|corp|st)\.$',
     caseSensitive: false,
   );
 

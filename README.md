@@ -19,7 +19,7 @@ legacy fallback for future development; the current UI does not use it.
 - Searchable Kokoro voice picker with **starred favorites** and a
   **Starred only** filter
 - Favorite voices and reading settings saved between launches
-- Lossless sentence splitting for decimals, URLs, abbreviations and closing quotes
+- Lossless sentence splitting for decimals, URLs, abbreviations, closing quotes, ordinal dates, and Unicode ellipses
 - Adjustable additional silence (300 ms between sentences, 650 ms for blank-line paragraphs by default)
 - Restart engine action if the Python worker exits unexpectedly
 
@@ -190,6 +190,8 @@ EchoText Rocky was initially ported from the upstream EchoText source
 revision `cd8b583` (April 24, 2026), then migrated to Kokoro ONNX.
 The original repository has not been changed by the Rocky work.
 
-The upstream EchoText project is MIT licensed. See the repository's
-license file for terms. Kokoro and its third-party dependencies have
-their own applicable licenses.
+**No root LICENSE file is currently included in this repository.** Before
+redistributing the source or a compiled application, the owner should select
+and publish appropriate project licensing terms and check any upstream code
+and dependency obligations. Kokoro and third-party components have their
+own licenses.

@@ -59,6 +59,34 @@ void main() {
         ['First line.\n\n', 'Second line!  ', 'Third?\n', 'Last']);
   });
 
+  test('ordinal 1st is not mistaken for St. abbreviation', () {
+    const source = 'It was the 1st. Then the 2nd.';
+    final chunks = TextHelpers.splitIntoSentences(source);
+    expect(chunks, ['It was the 1st. ', 'Then the 2nd.']);
+    expect(chunks.join(), source);
+  });
+
+  test('Unicode ellipsis ends a sentence but not a quoted closing mark', () {
+    const source = 'Something changed… Then they left.';
+    final chunks = TextHelpers.splitIntoSentences(source);
+    expect(chunks, ['Something changed… ', 'Then they left.']);
+    expect(chunks.join(), source);
+
+    const quoted = 'He whispered, “Wait…” Then turned away.';
+    final quotedChunks = TextHelpers.splitIntoSentences(quoted);
+    expect(quotedChunks, ['He whispered, “Wait…” ', 'Then turned away.']);
+    expect(quotedChunks.join(), quoted);
+  });
+
+  test('keeps known abbreviation tradeoffs and domain names intact', () {
+    const text = 'The U.S. Then it stopped.';
+    expect(TextHelpers.splitIntoSentences(text), [text]);
+    expect(TextHelpers.splitIntoSentences('Dr. Smith arrived.'),
+        ['Dr. Smith arrived.']);
+    expect(TextHelpers.splitIntoSentences('See example.com… Then return.'),
+        ['See example.com… ', 'Then return.']);
+  });
+
   test('paragraph gap applies only to blank-line separators', () {
     int gap(String chunk) => TextHelpers.pauseAfterChunk(chunk,
         sentenceGapMs: 300, paragraphGapMs: 650);
