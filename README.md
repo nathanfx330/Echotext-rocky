@@ -1,5 +1,27 @@
 # EchoText Rocky
 
+## Kokoro migration: CPU-only runtime stage (Rocky 8.10)
+
+The preferred TTS engine is now **Kokoro ONNX**, initially tested separately
+from Flutter. The existing Piper app remains the fallback during integration.
+
+From the repository root:
+
+    git pull
+    bash scripts/setup-kokoro.sh
+    bash scripts/download-kokoro.sh
+    bash scripts/test-kokoro.sh
+
+This uses the **existing Python 3.12** in a local .venv-kokoro folder.
+It requires no sudo, system Python upgrade, or NVIDIA/CUDA installation.
+See [the detailed Kokoro guide](docs/KOKORO.md).
+
+**Status:** worker and setup scripts committed; actual synthesis on Rocky
+still requires the three commands above. Flutter is not yet connected to Kokoro.
+
+---
+
+
 A separate, **CPU-only Rocky Linux desktop port** of [EchoText](https://github.com/nathanfx330/Echotext), based on the source as of `cd8b583` (April 24, 2026). The original repository has not been changed.
 
 Preserves: Flutter text editor, read-along highlighting, local Piper synthesis, sentence jumping, voice selection, cleanup tools, WAV export and aligned SRT subtitles.

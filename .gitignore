@@ -58,3 +58,6 @@ lib/generated_plugin_registrant.dart
 # Ignore generated audio files from testing
 *.wav
 *.mp3
+# Local Kokoro runtime / model bank (not published)
+/.venv-kokoro/
+/kokoro/
