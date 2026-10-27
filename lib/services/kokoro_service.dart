@@ -443,8 +443,8 @@ class KokoroService {
               
               int padBytes = (byteRate! * 0.05).toInt();
               padBytes = padBytes - (padBytes % blockAlign!); 
-              firstAudible = (firstAudible - padBytes).clamp(0, audioData.length);
-              lastAudible = (lastAudible + padBytes).clamp(0, audioData.length - blockAlign!);
+              firstAudible = (firstAudible - padBytes).clamp(0, audioData.length).toInt();
+              lastAudible = (lastAudible + padBytes).clamp(0, audioData.length - blockAlign!).toInt();
               
               if (lastAudible >= firstAudible) {
                 audioData = audioData.sublist(firstAudible, lastAudible + blockAlign!);
