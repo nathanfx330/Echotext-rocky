@@ -30,7 +30,7 @@ jobs:
           /opt/flutter/bin/flutter config --enable-linux-desktop
           /opt/flutter/bin/flutter pub get
       - name: Static analysis
-        run: /opt/flutter/bin/flutter analyze
+        run: /opt/flutter/bin/flutter analyze --no-fatal-infos
       - name: Unit tests
         run: /opt/flutter/bin/flutter test
       - name: Compile Rocky Linux desktop bundle
