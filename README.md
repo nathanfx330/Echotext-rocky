@@ -76,7 +76,7 @@ bash scripts/run-dev.sh
 - `setup-kokoro.sh` creates or reuses the dedicated Conda environment
   `echotext-kokoro` and runs pip **only inside that environment**.
 - `download-kokoro.sh` downloads the full-quality Kokoro ONNX model and
-  voice bank to the ignored `kokoro/` folder.
+  voice bank to the ignored `kokoro/` folder and verifies both official SHA-256 digests (including previously downloaded files).
 - `test-kokoro.sh` generates `kokoro_test.wav` for listening, and will
   **not overwrite** an existing test file by default. For a new smoke test,
   set `KOKORO_TEST_WAV` to a different filename.

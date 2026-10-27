@@ -37,7 +37,7 @@ It verifies the interpreter's Conda prefix before the pip step.
 It never installs packages into system Python or Conda `base`.
 
 `download-kokoro.sh` fetches the full-precision ONNX model and voice
-bank into `kokoro/`. Models and voices are not committed to Git.
+bank into `kokoro/` and verifies both against pinned SHA-256 release digests, including any existing assets. A mismatch aborts without overwriting a pre-existing file. Models and voices are not committed to Git.
 
 `test-kokoro.sh` saves a PCM, 24 kHz, mono WAV
 (`kokoro_test.wav`) in the current project directory. It refuses to
