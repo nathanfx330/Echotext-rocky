@@ -422,34 +422,34 @@ class KokoroService {
           int dataSize = view.getUint32(dataOffset + 4, Endian.little);
           int actualAvailable = bytes.length - (dataOffset + 8);
           int readSize = (dataSize < actualAvailable && dataSize > 0) ? dataSize : actualAvailable;
-          readSize = readSize - (readSize % blockAlign);
+          readSize = readSize - (readSize % blockAlign!);
           
           if (readSize > 0) {
             Uint8List audioData = bytes.sublist(dataOffset + 8, dataOffset + 8 + readSize);
             
             // PCM VAD Stripper
-            if (bitsPerSample == 16 && audioData.length >= blockAlign) {
+            if (bitsPerSample == 16 && audioData.length >= blockAlign!) {
               ByteData chunkView = ByteData.view(audioData.buffer, audioData.offsetInBytes, audioData.length);
               int threshold = 150, firstAudible = 0;
-              for (int j = 0; j <= audioData.length - blockAlign; j += blockAlign) {
+              for (int j = 0; j <= audioData.length - blockAlign!; j += blockAlign!) {
                 if (chunkView.getInt16(j, Endian.little).abs() > threshold) { firstAudible = j; break; }
               }
               
-              int lastAudible = audioData.length - blockAlign;
+              int lastAudible = audioData.length - blockAlign!;
               if (lastAudible < 0) lastAudible = 0;
-              for (int j = audioData.length - blockAlign; j >= firstAudible; j -= blockAlign) {
+              for (int j = audioData.length - blockAlign!; j >= firstAudible; j -= blockAlign!) {
                 if (chunkView.getInt16(j, Endian.little).abs() > threshold) { lastAudible = j; break; }
               }
               
-              int padBytes = (byteRate * 0.05).toInt();
-              padBytes = padBytes - (padBytes % blockAlign); 
+              int padBytes = (byteRate! * 0.05).toInt();
+              padBytes = padBytes - (padBytes % blockAlign!); 
               firstAudible = (firstAudible - padBytes).clamp(0, audioData.length).toInt();
-              lastAudible = (lastAudible + padBytes).clamp(0, audioData.length - blockAlign).toInt();
+              lastAudible = (lastAudible + padBytes).clamp(0, audioData.length - blockAlign!).toInt();
               
               if (lastAudible >= firstAudible) {
-                audioData = audioData.sublist(firstAudible, lastAudible + blockAlign);
-                int minBytes = (byteRate * 0.05).toInt(); 
-                minBytes = minBytes - (minBytes % blockAlign); 
+                audioData = audioData.sublist(firstAudible, lastAudible + blockAlign!);
+                int minBytes = (byteRate! * 0.05).toInt(); 
+                minBytes = minBytes - (minBytes % blockAlign!); 
                 if (audioData.length < minBytes) audioData = Uint8List(0); 
               } else {
                 audioData = Uint8List(0); 
@@ -461,8 +461,8 @@ class KokoroService {
               rawSink.add(audioData);
               totalDataBytes += audioData.length;
               
-              int startMs = (startBytes * 1000) ~/ byteRate;
-              int endMs = (totalDataBytes * 1000) ~/ byteRate;
+              int startMs = (startBytes * 1000) ~/ byteRate!;
+              int endMs = (totalDataBytes * 1000) ~/ byteRate!;
               int displayEndMs = endMs - 15; 
               if (displayEndMs <= startMs) displayEndMs = startMs + 10;
               
@@ -503,9 +503,9 @@ class KokoroService {
        header.setUint32(16, 16, Endian.little);
        header.setUint16(20, 1, Endian.little);
        header.setUint16(22, numChannels!, Endian.little);
-       header.setUint32(24, sampleRate, Endian.little);
-       header.setUint32(28, byteRate, Endian.little);
-       header.setUint16(32, blockAlign, Endian.little);
+       header.setUint32(24, sampleRate!, Endian.little);
+       header.setUint32(28, byteRate!, Endian.little);
+       header.setUint16(32, blockAlign!, Endian.little);
        header.setUint16(34, bitsPerSample!, Endian.little);
        header.setUint8(36, 0x64); header.setUint8(37, 0x61); header.setUint8(38, 0x74); header.setUint8(39, 0x61); 
        header.setUint32(40, totalDataBytes, Endian.little);
