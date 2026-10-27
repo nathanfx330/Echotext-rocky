@@ -23,21 +23,21 @@ void main() {
     expect(TextHelpers.splitIntoSentences(''), isEmpty);
   });
 
-  test('decimals, percentages, and dollar values stay in one sentence', () {
-    expect(TextHelpers.splitIntoSentences('The 3.5% rule was tested.'),
-        ['The 3.5% rule was tested.']);
+  test('synthetic decimals, percentages, and dollar values stay intact', () {
+    expect(TextHelpers.splitIntoSentences('A 2.75% service fee applies.'),
+        ['A 2.75% service fee applies.']);
     expect(TextHelpers.splitIntoSentences(
-        'The U.S. Treasury spent \$1.2 billion.'),
-        ['The U.S. Treasury spent \$1.2 billion.']);
+        'The U.S. office paid \$12.50.'),
+        ['The U.S. office paid \$12.50.']);
   });
 
-  test('domain names and U.S. abbreviation do not split', () {
+  test('example domains and U.S. abbreviation do not split', () {
     expect(TextHelpers.splitIntoSentences(
-        'Visit nathanielwestveer.com for more.'),
-        ['Visit nathanielwestveer.com for more.']);
+        'Visit example.org for details.'),
+        ['Visit example.org for details.']);
     expect(TextHelpers.splitIntoSentences(
-        'Dr. Smith spoke to the U.S. Treasury. Then he left.'),
-        ['Dr. Smith spoke to the U.S. Treasury. ', 'Then he left.']);
+        'Dr. Lee visited the U.S. office. Then she left.'),
+        ['Dr. Lee visited the U.S. office. ', 'Then she left.']);
   });
 
   test('quotes and closing brackets stay with sentence punctuation', () {
@@ -79,7 +79,7 @@ void main() {
   });
 
   test('keeps known abbreviation tradeoffs and domain names intact', () {
-    const text = 'The U.S. Then it stopped.';
+    const text = 'We arrived in the U.S. Then we rested.';
     expect(TextHelpers.splitIntoSentences(text), [text]);
     expect(TextHelpers.splitIntoSentences('Dr. Smith arrived.'),
         ['Dr. Smith arrived.']);
