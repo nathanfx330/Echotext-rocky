@@ -37,7 +37,7 @@ class TextHelpers {
         }
 
         // If immediately followed by letters/digits, this is not a stop:
-        // e.g. 3.5%, nathanielwestveer.com, U.S.
+        // e.g. 4.5%, example.com, U.S.
         if (end == text.length || _isWhitespace(text[end])) {
           final isProtectedDot = char == '.' &&
               _abbreviation.hasMatch(text.substring(start, i + 1));

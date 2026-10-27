@@ -112,8 +112,8 @@ stored in Flutter SharedPreferences.
 ## Sentence splitting and narration pauses
 
 Sentence splitting preserves all original characters for correct editor
-highlighting. Regression tests cover decimals (`3.5%`), currency
-(`$1.2 billion`), `U.S.`, hostnames, closing quotes, and paragraph breaks.
+highlighting. Regression tests cover decimals (`4.5%`), currency
+(`$2.7 million`), `U.S.`, hostnames, closing quotes, and paragraph breaks.
 
 Two Settings sliders control **additional** silence after each sentence:
 300 ms by default for ordinary sentences and 650 ms for a blank-line
