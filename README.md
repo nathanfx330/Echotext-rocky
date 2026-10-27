@@ -190,8 +190,8 @@ EchoText Rocky was initially ported from the upstream EchoText source
 revision `cd8b583` (April 24, 2026), then migrated to Kokoro ONNX.
 The original repository has not been changed by the Rocky work.
 
-**No root LICENSE file is currently included in this repository.** Before
-redistributing the source or a compiled application, the owner should select
-and publish appropriate project licensing terms and check any upstream code
-and dependency obligations. Kokoro and third-party components have their
-own licenses.
+EchoText Rocky is published under the [MIT License](LICENSE).
+Copyright (c) 2026 Nathaniel Westveer.
+
+Kokoro, Flutter, and other third-party components retain their own licenses
+and attribution requirements.
