@@ -32,6 +32,9 @@ class KokoroService {
   bool isInitialized = false;
   bool _disposed = false;
 
+  /// Notify the UI when the persistent Python engine unexpectedly exits.
+  void Function(String reason)? onUnexpectedExit;
+
   KokoroService() {
     _completionSubscription = audioPlayer.onPlayerComplete.listen((_) {
       final current = _playCompleter;
@@ -140,13 +143,18 @@ class KokoroService {
       });
 
       process.exitCode.then((code) {
-        if (identical(_process, process)) {
-          _process = null;
-          isInitialized = false;
-        }
-        _failWorker(StateError(
+        // An older process must not invalidate a freshly restarted worker.
+        if (!identical(_process, process)) return;
+        final hadInitialized = isInitialized;
+        _process = null;
+        isInitialized = false;
+        final error = StateError(
           'Kokoro worker exited ($code). ' + _lastError,
-        ));
+        );
+        _failWorker(error);
+        if (!_disposed && hadInitialized) {
+          onUnexpectedExit?.call(error.toString());
+        }
       });
 
       await _ready!.future.timeout(

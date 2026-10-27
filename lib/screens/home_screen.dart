@@ -68,6 +68,10 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
   @override
   void initState() {
     super.initState();
+    _kokoroService.onUnexpectedExit = (reason) {
+      if (!mounted) return;
+      setState(() => _engineError = reason);
+    };
     _initApp();
   }
 
@@ -246,6 +250,38 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
         offset += _textChunks[i].length;
       }
       _textController.selection = TextSelection.collapsed(offset: offset);
+    }
+  }
+
+  Future<void> _restartEngine() async {
+    if (_isPlaying || _isGenerating) {
+      await _stopPlayback();
+    }
+    if (!mounted) return;
+    setState(() => _engineError = null);
+    try {
+      await _kokoroService.init();
+      if (!mounted) return;
+      final voices = _kokoroService.availableVoices;
+      final preferred = _prefs.getString('kokoro_voice') ?? _voiceId;
+      if (voices.isNotEmpty) {
+        final selected = voices.firstWhere(
+          (voice) => voice.path == preferred,
+          orElse: () => voices.firstWhere(
+            (voice) => voice.path == 'af_heart',
+            orElse: () => voices.first,
+          ),
+        );
+        setState(() {
+          _selectedVoice = selected;
+          _voiceId = selected.path;
+          _engineError = null;
+        });
+      } else {
+        setState(() {});
+      }
+    } catch (error) {
+      if (mounted) setState(() => _engineError = error.toString());
     }
   }
 
@@ -637,9 +673,23 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
                 if (_engineError != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: Text(
-                      'Kokoro startup error: ' + _engineError!,
-                      style: const TextStyle(color: Colors.orangeAccent),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Kokoro engine unavailable: ' + _engineError!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: Colors.orangeAccent),
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: _restartEngine,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Restart engine'),
+                        ),
+                      ],
                     ),
                   ),
                 if (_isSearching)
