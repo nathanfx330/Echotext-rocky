@@ -249,6 +249,8 @@ class KokoroService {
     List<String> chunks, {
     required String voice,
     required double speed,
+    required int sentenceGapMs,
+    required int paragraphGapMs,
     required void Function(int) onChunkStart,
     int startIndex = 0,
   }) async {
@@ -265,6 +267,9 @@ class KokoroService {
       next = i + 1 < chunks.length
           ? _generateChunk(chunks[i + 1], i + 1, temp.path, voice, speed, myId)
           : null;
+      // Observe errors even if Stop cancels playback before the prefetch
+      // future is awaited on the next iteration.
+      next?.ignore();
 
       if (file == null) continue; // Blank or punctuation-only sentence.
       onChunkStart(i);
@@ -277,7 +282,18 @@ class KokoroService {
         if (identical(_playCompleter, completion)) _playCompleter = null;
         await _deleteTemp(file);
       }
+      if (i + 1 < chunks.length && myId == _playbackId) {
+        final gapMs = TextHelpers.pauseAfterChunk(
+          chunks[i],
+          sentenceGapMs: sentenceGapMs,
+          paragraphGapMs: paragraphGapMs,
+        );
+        if (gapMs > 0) {
+          await Future<void>.delayed(Duration(milliseconds: gapMs));
+        }
+      }
     }
+    next?.ignore();
   }
 
   Future<String?> _generateChunk(
@@ -348,6 +364,8 @@ class KokoroService {
     String outputPath, {
     required String voice,
     required double speed,
+    required int sentenceGapMs,
+    required int paragraphGapMs,
     List<String>? exportChunks,
     bool isSubtitlesRequested = false,
     void Function(int current, int total, String eta)? onProgress,
@@ -398,6 +416,7 @@ class KokoroService {
     var rawSink = rawAudioTempFile.openWrite();
     
     int totalDataBytes = 0;
+    String? previousSpokenChunk;
     int? sampleRate, numChannels, bitsPerSample, byteRate, blockAlign;
 
     for (int i = 0; i < totalCount; i++) {
@@ -441,7 +460,7 @@ class KokoroService {
                 if (chunkView.getInt16(j, Endian.little).abs() > threshold) { lastAudible = j; break; }
               }
               
-              int padBytes = (byteRate! * 0.05).toInt();
+              int padBytes = (byteRate! * 0.03).toInt();
               padBytes = padBytes - (padBytes % blockAlign!); 
               firstAudible = (firstAudible - padBytes).clamp(0, audioData.length).toInt();
               lastAudible = (lastAudible + padBytes).clamp(0, audioData.length - blockAlign!).toInt();
@@ -457,9 +476,27 @@ class KokoroService {
             }
 
             if (audioData.isNotEmpty) {
-              int startBytes = totalDataBytes; 
+              // Add actual zero PCM frames *between* successfully generated
+              // sentences, before the next SRT start timestamp is recorded.
+              // This keeps gaps on the same audio timeline as subtitles.
+              if (previousSpokenChunk != null) {
+                final gapMs = TextHelpers.pauseAfterChunk(
+                  previousSpokenChunk,
+                  sentenceGapMs: sentenceGapMs,
+                  paragraphGapMs: paragraphGapMs,
+                );
+                final silentFrames = ((gapMs * sampleRate!) / 1000).round();
+                final silentBytes = silentFrames * blockAlign!;
+                if (silentBytes > 0) {
+                  rawSink.add(Uint8List(silentBytes));
+                  totalDataBytes += silentBytes;
+                }
+              }
+
+              int startBytes = totalDataBytes;
               rawSink.add(audioData);
               totalDataBytes += audioData.length;
+              previousSpokenChunk = textChunk;
               
               int startMs = (startBytes * 1000) ~/ byteRate!;
               int endMs = (totalDataBytes * 1000) ~/ byteRate!;

@@ -10,6 +10,10 @@ class SettingsSheet extends StatelessWidget {
   final List<VoiceModel> availableVoices;
   final Set<String> favoriteVoices;
   final double speechSpeed;
+  final int sentenceGapMs;
+  final int paragraphGapMs;
+  final ValueChanged<int> onSentenceGapChanged;
+  final ValueChanged<int> onParagraphGapChanged;
   final ValueChanged<VoiceModel> onVoiceSelected;
   final ValueChanged<String> onFavoriteToggled;
   final ValueChanged<double> onSpeedChanged;
@@ -20,6 +24,10 @@ class SettingsSheet extends StatelessWidget {
     required this.availableVoices,
     required this.favoriteVoices,
     required this.speechSpeed,
+    required this.sentenceGapMs,
+    required this.paragraphGapMs,
+    required this.onSentenceGapChanged,
+    required this.onParagraphGapChanged,
     required this.onVoiceSelected,
     required this.onFavoriteToggled,
     required this.onSpeedChanged,
@@ -126,6 +134,45 @@ class SettingsSheet extends StatelessWidget {
           ),
           const Text('Higher values speak faster.',
               style: TextStyle(fontSize: 12, color: Colors.white38)),
+          const SizedBox(height: 16),
+          const Divider(color: Colors.white12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Extra sentence pause',
+                  style: TextStyle(color: Colors.white70)),
+              Text('${sentenceGapMs} ms'),
+            ],
+          ),
+          Slider(
+            value: sentenceGapMs.toDouble(),
+            min: 0,
+            max: 1200,
+            divisions: 24,
+            label: '${sentenceGapMs} ms',
+            onChanged: (value) => onSentenceGapChanged(value.round()),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Extra paragraph pause',
+                  style: TextStyle(color: Colors.white70)),
+              Text('${paragraphGapMs} ms'),
+            ],
+          ),
+          Slider(
+            value: paragraphGapMs.toDouble(),
+            min: 0,
+            max: 2000,
+            divisions: 40,
+            label: '${paragraphGapMs} ms',
+            onChanged: (value) => onParagraphGapChanged(value.round()),
+          ),
+          const Text(
+            'Additional silence between chunks. Applies to playback and '
+            'WAV/SRT export; paragraph breaks require a blank line.',
+            style: TextStyle(fontSize: 12, color: Colors.white38),
+          ),
         ],
       ),
     );

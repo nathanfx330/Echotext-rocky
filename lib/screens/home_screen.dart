@@ -61,6 +61,8 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
   VoiceModel? _selectedVoice;
   Set<String> _favoriteVoices = VoiceFavorites.restore(null);
   double _speechSpeed = 1.0;
+  int _sentenceGapMs = 300;
+  int _paragraphGapMs = 650;
   String? _engineError;
 
   @override
@@ -81,6 +83,10 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
     _textController.text = _prefs.getString('saved_text') ?? '';
     _lastSavedText = _textController.text;
     _speechSpeed = _prefs.getDouble('speech_speed') ?? 1.0;
+    _sentenceGapMs =
+        (_prefs.getInt('sentence_gap_ms') ?? 300).clamp(0, 1200);
+    _paragraphGapMs =
+        (_prefs.getInt('paragraph_gap_ms') ?? 650).clamp(0, 2000);
     _favoriteVoices = VoiceFavorites.restore(
       _prefs.getStringList(VoiceFavorites.preferencesKey),
     );
@@ -289,6 +295,8 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
         _textChunks,
         voice: _voiceId,
         speed: _speechSpeed,
+        sentenceGapMs: _sentenceGapMs,
+        paragraphGapMs: _paragraphGapMs,
         startIndex: startIndex,
         onChunkStart: (idx) {
           if (mounted && _playbackId == currentPlaybackId) {
@@ -425,6 +433,8 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
         outputFile,
         voice: _voiceId,
         speed: _speechSpeed,
+        sentenceGapMs: _sentenceGapMs,
+        paragraphGapMs: _paragraphGapMs,
         exportChunks: chunksForExport,
         isSubtitlesRequested: generateSubtitles, // Kokoro service handles WAV and SRT
         onProgress: (current, total, eta) {
@@ -486,13 +496,18 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
       context: context,
       backgroundColor: const Color(0xFF1E1E1E),
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      isScrollControlled: true,
+      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.85),
       builder: (context) {
         return StatefulBuilder(builder: (context, setSheetState) {
-          return SettingsSheet(
+          return SingleChildScrollView(
+            child: SettingsSheet(
             selectedVoice: _selectedVoice,
             availableVoices: _kokoroService.availableVoices,
             favoriteVoices: _favoriteVoices,
             speechSpeed: _speechSpeed,
+            sentenceGapMs: _sentenceGapMs,
+            paragraphGapMs: _paragraphGapMs,
             onVoiceSelected: (newVoice) {
               setSheetState(() {});
               setState(() {
@@ -510,6 +525,17 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
               setState(() => _speechSpeed = val);
               unawaited(_prefs.setDouble('speech_speed', val));
             },
+            onSentenceGapChanged: (val) {
+              setSheetState(() {});
+              setState(() => _sentenceGapMs = val);
+              unawaited(_prefs.setInt('sentence_gap_ms', val));
+            },
+            onParagraphGapChanged: (val) {
+              setSheetState(() {});
+              setState(() => _paragraphGapMs = val);
+              unawaited(_prefs.setInt('paragraph_gap_ms', val));
+            },
+          ),
           );
         });
       }
