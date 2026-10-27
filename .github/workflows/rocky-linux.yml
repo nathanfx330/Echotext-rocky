@@ -1,0 +1,42 @@
+# .github/workflows/rocky-linux.yml
+name: Rocky Linux 9 CPU build
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  rocky-linux:
+    runs-on: ubuntu-24.04
+    container: rockylinux:9
+    steps:
+      - name: Install native dependencies
+        run: |
+          dnf install -y git curl unzip xz file findutils tar which ca-certificates \
+            clang cmake ninja-build gcc-c++ pkgconf-pkg-config gtk3-devel \
+            gstreamer1-devel gstreamer1-plugins-base-devel \
+            gstreamer1-plugins-base gstreamer1-plugins-good
+      - name: Check out EchoText Rocky
+        uses: actions/checkout@v4
+      - name: Install Flutter stable SDK
+        run: |
+          git clone --depth 1 --branch stable https://github.com/flutter/flutter.git /opt/flutter
+          git config --global --add safe.directory /opt/flutter
+          /opt/flutter/bin/flutter --version
+      - name: Resolve Dart dependencies
+        run: |
+          /opt/flutter/bin/flutter config --enable-linux-desktop
+          /opt/flutter/bin/flutter pub get
+      - name: Static analysis
+        run: /opt/flutter/bin/flutter analyze
+      - name: Unit tests
+        run: /opt/flutter/bin/flutter test
+      - name: Compile Rocky Linux desktop bundle
+        run: /opt/flutter/bin/flutter build linux --release
+      - name: Upload compiled bundle (without voice models)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: echotext-rocky9-cpu
+          path: build/linux/x64/release/bundle/
