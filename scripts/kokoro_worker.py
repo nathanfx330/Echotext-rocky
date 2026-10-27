@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import ctypes
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -21,6 +23,66 @@ def respond(data: dict) -> None:
     print(json.dumps(data, ensure_ascii=False), flush=True)
 
 
+
+
+def find_matching_espeak() -> tuple[str, str]:
+    """Use one compatible eSpeak NG library and its matching dictionary data.
+
+    The PyPI espeakng-loader wheel may require GLIBC_2.29, and its bundled
+    phonetic data MUST NOT be mixed with Rocky 8's older system library.
+    """
+    override_lib = os.environ.get("ECHOTEXT_ESPEAK_LIB")
+    override_data = os.environ.get("ECHOTEXT_ESPEAK_DATA")
+    if bool(override_lib) != bool(override_data):
+        raise RuntimeError(
+            "Set BOTH ECHOTEXT_ESPEAK_LIB and ECHOTEXT_ESPEAK_DATA, or neither"
+        )
+
+    prefix = os.environ.get("CONDA_PREFIX", "")
+    candidates: list[tuple[Path, Path]] = []
+    if override_lib and override_data:
+        candidates.append((Path(override_lib), Path(override_data)))
+    else:
+        if prefix:
+            root = Path(prefix)
+            candidates += [
+                (root / "lib/libespeak-ng.so.1", root / "share/espeak-ng-data"),
+                (root / "lib/libespeak-ng.so", root / "share/espeak-ng-data"),
+                (root / "lib/libespeak-ng.so.1",
+                 root / "share/espeak-ng/espeak-ng-data"),
+            ]
+        # Rocky 8's installed distro runtime, if it includes eSpeak NG
+        candidates += [
+            (Path("/usr/lib64/libespeak-ng.so.1"),
+             Path("/usr/share/espeak-ng-data")),
+            (Path("/lib64/libespeak-ng.so.1"),
+             Path("/usr/share/espeak-ng-data")),
+            (Path("/usr/lib64/libespeak-ng.so"),
+             Path("/usr/share/espeak-ng-data")),
+            (Path("/usr/local/lib64/libespeak-ng.so.1"),
+             Path("/usr/local/share/espeak-ng-data")),
+        ]
+
+    attempted = []
+    for library, data in candidates:
+        if not library.is_file() or not (data / "en_dict").is_file():
+            attempted.append(f"{library} | {data}: library/data absent")
+            continue
+        try:
+            ctypes.CDLL(str(library))
+        except OSError as exc:
+            attempted.append(f"{library}: {exc}")
+            continue
+        print(f"Using matching eSpeak NG library: {library}", file=sys.stderr)
+        print(f"Using matching eSpeak NG data: {data}", file=sys.stderr)
+        return str(library), str(data)
+
+    raise RuntimeError(
+        "No usable matching eSpeak NG library and dictionary data pair found. "
+        "Run 'bash scripts/diagnose-espeak.sh'. Details: " + "; ".join(attempted)
+    )
+
+
 def initialize(model_path: Path, voices_path: Path):
     if not model_path.is_file():
         raise FileNotFoundError(f"Missing ONNX model: {model_path}")
@@ -29,9 +91,15 @@ def initialize(model_path: Path, voices_path: Path):
     with contextlib.redirect_stdout(sys.stderr):
         import onnxruntime as ort
         import soundfile as sf
-        from kokoro_onnx import Kokoro
+        from kokoro_onnx import Kokoro, EspeakConfig
+        lib, data = find_matching_espeak()
+        # kokoro-onnx may override EspeakConfig with this variable.
+        os.environ["PHONEMIZER_ESPEAK_LIBRARY"] = lib
         session = ort.InferenceSession(str(model_path), providers=["CPUExecutionProvider"])
-        engine = Kokoro.from_session(session, str(voices_path))
+        engine = Kokoro.from_session(
+            session, str(voices_path),
+            espeak_config=EspeakConfig(lib_path=lib, data_path=data),
+        )
     return engine, sf
 
 

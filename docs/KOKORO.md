@@ -32,7 +32,7 @@ The download fetches the full-precision 326 MB kokoro-v1.0.onnx model
 and 28 MB voices-v1.0.bin voice bank from the official model-files-v1.1
 release. Both are excluded from Git and preserved on repeated runs.
 
-The test generates a temporary PCM 16-bit WAV and deletes it afterward.
+The test generates a PCM 16-bit WAV as `kokoro_test.wav` in the project directory for listening.
 Success requires importing the Python packages, loading ONNX + voices,
 performing CPU inference, and writing a nonempty file.
 
@@ -60,3 +60,19 @@ an engine/voice selection setting. Piper stays optional and isolated.
 ## Environment policy
 
 Do not install Kokoro packages into `base`, the Rocky system Python, or a standalone `venv`. All Python package actions belong in the `echotext-kokoro` Conda environment. Earlier `.venv-kokoro` setup instructions have been superseded.
+
+## Rocky 8 phonemizer fix (after first real WAV test)
+
+The first live test did produce 24 kHz mono audio, but the bundled `espeakng-loader` library required `GLIBC_2.29`, unavailable on Rocky 8 (glibc 2.28). Kokoro automatically fell back to a system library while still using incompatible bundled pronunciation data, producing `Bad rules data in 'en_dict'`.
+
+The worker now selects a matching eSpeak NG shared library **and its associated dictionary folder** rather than silently mixing them. It **fails closed** if it cannot find a safe pair. It checks the Conda environment first, then installed Rocky paths. For unusual installations, set *both* `ECHOTEXT_ESPEAK_LIB` and `ECHOTEXT_ESPEAK_DATA` to the correct pair. Never change system glibc.
+
+From the repository root:
+
+```bash
+git pull
+bash scripts/diagnose-espeak.sh
+bash scripts/test-kokoro.sh
+```
+
+A successful test now saves `kokoro_test.wav` in the current project directory rather than immediately deleting it, so the phoneme quality can be checked by listening. It will not overwrite an existing WAV without an explicit `KOKORO_TEST_WAV` name or `KOKORO_OVERWRITE_TEST=1`. If the diagnostic doesn't find a matching eSpeak NG library + data, report the output; we can install/build the pair **within the dedicated Conda environment**, not system wide.

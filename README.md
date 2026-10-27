@@ -15,8 +15,12 @@ From the repository root:
 This uses a dedicated **Conda environment named `echotext-kokoro`** with Python 3.12. Packages are installed through `conda run -n echotext-kokoro python -m pip`, never through system Python, base Conda, or standalone venv. It requires no sudo, system Python upgrade, or NVIDIA/CUDA installation.
 See [the detailed Kokoro guide](docs/KOKORO.md).
 
-**Status:** worker and setup scripts committed; actual synthesis on Rocky
-still requires the three commands above. Flutter is not yet connected to Kokoro.
+**Status:** first real CPU synthesis succeeded on Rocky 8.10, but the
+bundled eSpeak NG library required `GLIBC_2.29`, and the automatic system
+fallback printed `Bad rules data in 'en_dict'`. The worker now requires a
+matching eSpeak library and pronunciation-data pair. Run
+`bash scripts/diagnose-espeak.sh`, then `bash scripts/test-kokoro.sh` and
+listen to the retained `kokoro_test.wav` before connecting Flutter.
 
 ---
 
