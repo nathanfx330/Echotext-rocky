@@ -109,6 +109,24 @@ for possible future fallback, but is not used by the current UI.
 Voice favorites, including the initial `af_heart` star, are
 stored in Flutter SharedPreferences.
 
+## Sentence splitting and narration pauses
+
+Sentence splitting preserves all original characters for correct editor
+highlighting. Regression tests cover decimals (`3.5%`), currency
+(`$1.2 billion`), `U.S.`, hostnames, closing quotes, and paragraph breaks.
+
+Two Settings sliders control **additional** silence after each sentence:
+300 ms by default for ordinary sentences and 650 ms for a blank-line
+paragraph break. Live playback waits for the configured interval;
+WAV export inserts that many 16-bit PCM silent frames and shifts the
+following SRT cue's start time accordingly. Because Kokoro's source audio
+may also contain pauses, these values are extra delay rather than an
+exact total duration.
+
+If the persistent Python worker exits unexpectedly, the editor displays
+an error with a **Restart engine** button. Restart does not reinstall
+models or change the Conda environment.
+
 ## Build and packaging
 
 ```bash
