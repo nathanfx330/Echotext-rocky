@@ -1,5 +1,5 @@
 name: echotext
-description: "A Flutter app for on-the-fly TTS using Piper."
+description: "Offline EchoText desktop reader using Kokoro ONNX CPU with Conda."
 publish_to: 'none' 
 
 version: 1.0.0+1

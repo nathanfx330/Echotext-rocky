@@ -480,7 +480,8 @@ class KokoroService {
         } else {
           errorLog.writeln('CHUNK $i FAILED: No fmt/data chunks. TEXT: $textChunk\n');
         }
-        await chunkFile.delete(); 
+        await chunkFile.delete();
+        _tempAudio.remove(chunkFile.path);
       } else {
         errorLog.writeln('CHUNK $i FAILED: Kokoro failed to generate chunk. TEXT: $textChunk\n');
       }

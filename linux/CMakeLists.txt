@@ -137,3 +137,18 @@ foreach(LOCAL_RESOURCE piper model)
       COMPONENT Runtime)
   endif()
 endforeach()
+
+# Kokoro's worker script ships beside the Flutter binary; the Conda
+# environment is deliberately NOT copied or bundled.
+install(FILES "${CMAKE_SOURCE_DIR}/../scripts/kokoro_worker.py"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/scripts"
+  COMPONENT Runtime)
+
+# Kokoro model files are optional for a source checkout, but are packaged
+# automatically when installed under kokoro/ before building a release.
+if(EXISTS "${CMAKE_SOURCE_DIR}/../kokoro")
+  install(DIRECTORY "${CMAKE_SOURCE_DIR}/../kokoro"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}"
+    USE_SOURCE_PERMISSIONS
+    COMPONENT Runtime)
+endif()

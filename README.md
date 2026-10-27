@@ -2,8 +2,9 @@
 
 ## Kokoro migration: CPU-only runtime stage (Rocky 8.10)
 
-The preferred TTS engine is now **Kokoro ONNX**, initially tested separately
-from Flutter. The existing Piper app remains the fallback during integration.
+The primary TTS engine is now **Kokoro ONNX**. The original Piper service file
+remains in the repository as a possible future fallback but is not selected by
+the current UI.
 
 From the repository root:
 
@@ -15,19 +16,38 @@ From the repository root:
 This uses a dedicated **Conda environment named `echotext-kokoro`** with Python 3.12. Packages are installed through `conda run -n echotext-kokoro python -m pip`, never through system Python, base Conda, or standalone venv. It requires no sudo, system Python upgrade, or NVIDIA/CUDA installation.
 See [the detailed Kokoro guide](docs/KOKORO.md).
 
-**Status:** first real CPU synthesis succeeded on Rocky 8.10, but the
-bundled eSpeak NG library required `GLIBC_2.29`, and the automatic system
-fallback printed `Bad rules data in 'en_dict'`. The worker now requires a
-matching eSpeak library and pronunciation-data pair. Run
-`bash scripts/diagnose-espeak.sh`, then `bash scripts/test-kokoro.sh` and
-listen to the retained `kokoro_test.wav` before connecting Flutter.
+**Status:** Full-quality Kokoro CPU synthesis and matching eSpeak NG
+library/data **were verified by a real user playback test on Rocky 8.10**.
+The Flutter integration has now been committed but **has not yet passed a
+Rocky Flutter build/runtime test**. The persistent Python worker, voice list,
+sentence playback, and WAV/SRT pipeline are connected in source.
+
+### First run of the Kokoro-connected Flutter application
+
+From your `Echotext-rocky` directory with the existing
+`echotext-kokoro` Conda environment installed:
+
+```bash
+git pull
+bash scripts/run-dev.sh
+```
+
+Try reading a sentence, switching the Kokoro voice, and exporting a short
+paragraph with Audio + SRT. For a release build, run
+`bash scripts/build.sh`; its bundle copies `scripts/kokoro_worker.py`
+and your local `kokoro/` model files. The Conda environment stays external.
+
+If the app cannot locate Conda Python, set `ECHOTEXT_KOKORO_PYTHON` to the
+**Conda environment's** `bin/python` binary. If launched from an unusual
+working directory, set `ECHOTEXT_KOKORO_ROOT` to the project or bundle root.
+
 
 ---
 
 
 A separate, **CPU-only Rocky Linux desktop port** of [EchoText](https://github.com/nathanfx330/Echotext), based on the source as of `cd8b583` (April 24, 2026). The original repository has not been changed.
 
-Preserves: Flutter text editor, read-along highlighting, local Piper synthesis, sentence jumping, voice selection, cleanup tools, WAV export and aligned SRT subtitles.
+Preserves: Flutter text editor, read-along highlighting, sentence jumping, Kokoro voice selection, cleanup tools, WAV export and sentence-aligned SRT subtitles.
 
 ### Targets and constraints
 
