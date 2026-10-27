@@ -11,9 +11,10 @@ jobs:
     runs-on: ubuntu-24.04
     container: rockylinux:8
     steps:
+      # Ninja is supplied by Rocky 8 PowerTools, disabled by default.
       - name: Install native dependencies
         run: |
-          dnf install -y git curl unzip xz file findutils tar which ca-certificates \
+          dnf --enablerepo=powertools install -y git curl unzip xz file findutils tar which ca-certificates \
             clang cmake ninja-build gcc-c++ pkgconf-pkg-config gtk3-devel \
             gstreamer1-devel gstreamer1-plugins-base-devel \
             gstreamer1-plugins-base gstreamer1-plugins-good
