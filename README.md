@@ -6,7 +6,7 @@ Preserves: Flutter text editor, read-along highlighting, local Piper synthesis, 
 
 ### Targets and constraints
 
-- Rocky Linux 9 or 10, x86_64; build and runtime confirmation require a real Rocky machine.
+- **Rocky Linux 8.10**, x86_64, matching the development workstation; build and runtime confirmation require a real Rocky machine. Rocky 9/10 may also work but are not the current target.
 - Flutter Linux desktop SDK providing Dart **3.11.3+** (the upstream `pubspec.yaml` requirement).
 - **Original CPU Piper CLI** compatible with `--json-input` and `--output_file`; *not* an arbitrary newer Piper release.
 - No CUDA, NVIDIA toolkit, GPU toggle or driver changes.
@@ -19,7 +19,18 @@ bash scripts/rocky-setup.sh
 bash scripts/diagnose.sh
 ```
 
-The setup installs basic build/audio development packages using `sudo dnf`. It does **not** install Flutter, Piper or NVIDIA/CUDA dependencies. Install or update Flutter separately if `flutter --version` lacks the required Dart SDK.
+The setup installs build/audio development packages using `sudo dnf` and **may upgrade already-installed system packages**, as DNF did on the initial Rocky 8.10 test. Run it only when needed. It does **not** install Flutter, Piper or NVIDIA/CUDA dependencies. The tested Rocky machine already has Flutter 3.44.6 and Dart 3.12.2.
+
+### Install the original CPU Piper runtime locally
+
+The original Piper project has an archived Linux x86_64 CPU distribution. Install it into the repository's local `piper/` directory (no system-wide installation):
+
+```bash
+bash scripts/install-piper-cpu.sh
+bash scripts/diagnose.sh
+```
+
+This installer uses the official [Piper 2023.11.14-2 release](https://github.com/rhasspy/piper/releases/tag/2023.11.14-2). On Rocky 8, its ELF/shared-library compatibility **still must be checked** with `ldd` and synthesis. If it fails, do not replace the system glibc: we'll build a CPU-compatible Piper on Rocky 8 instead. You can also provide your already-working Piper directory instead of downloading a new copy.
 
 ### Use your existing voices
 
@@ -37,6 +48,8 @@ model/
 ```
 
 Models directly inside `model/` are supported too. Keep each `.onnx.json` beside its `.onnx`. You may also set `ECHOTEXT_PIPER` and `ECHOTEXT_MODEL_DIR` to point to an external executable or model directory.
+
+The initial Rocky diagnostics found **no models** in `model/`. Locate your existing models (e.g., `find "$HOME" -type f -name '*.onnx' -print`) and copy each model and its JSON config under `model/`, or set `ECHOTEXT_MODEL_DIR` to the containing folder.
 
 ```bash
 chmod +x piper/piper
@@ -67,6 +80,6 @@ Release artifact: `build/linux/x64/release/bundle/echotext`. The build bundles t
 
 ### Status and provenance
 
-Source and CI-independent checks have been prepared. **No successful Rocky compilation or Piper execution is asserted.** Run the diagnostics, smoke test, and Flutter tests on your Rocky workstation to verify native dependencies.
+Source has been ported for Rocky 8.10. The CI workflow targets `rockylinux:8` and Flutter 3.44.6. **No successful Rocky compilation or Piper execution is asserted.** Run the diagnostics, smoke test, and Flutter tests on your Rocky workstation to verify native dependencies.
 
 EchoText upstream is MIT licensed, copyright (c) 2026 Nathaniel Westveer.

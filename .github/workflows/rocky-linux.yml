@@ -1,5 +1,5 @@
 # .github/workflows/rocky-linux.yml
-name: Rocky Linux 9 CPU build
+name: Rocky Linux 8 CPU build
 on:
   push:
     branches: [main]
@@ -9,7 +9,7 @@ on:
 jobs:
   rocky-linux:
     runs-on: ubuntu-24.04
-    container: rockylinux:9
+    container: rockylinux:8
     steps:
       - name: Install native dependencies
         run: |
@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Install Flutter stable SDK
         run: |
-          git clone --depth 1 --branch stable https://github.com/flutter/flutter.git /opt/flutter
+          git clone --depth 1 --branch 3.44.6 https://github.com/flutter/flutter.git /opt/flutter
           git config --global --add safe.directory /opt/flutter
           /opt/flutter/bin/flutter --version
       - name: Resolve Dart dependencies
@@ -38,5 +38,5 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: echotext-rocky9-cpu
+          name: echotext-rocky8-cpu
           path: build/linux/x64/release/bundle/

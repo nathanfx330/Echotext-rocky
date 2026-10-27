@@ -30,7 +30,12 @@ fi
 echo '== Voice models =='
 MODEL_DIR="${ECHOTEXT_MODEL_DIR:-model}"
 if [[ -d "$MODEL_DIR" ]]; then
-  find "$MODEL_DIR" -maxdepth 2 -type f -name '*.onnx' -print
+  count="$(find "$MODEL_DIR" -maxdepth 2 -type f -name '*.onnx' | wc -l)"
+  if [[ "$count" -eq 0 ]]; then
+    echo "NO VOICES: $MODEL_DIR contains no .onnx models"
+  else
+    find "$MODEL_DIR" -maxdepth 2 -type f -name '*.onnx' -print
+  fi
 else
   echo "MISSING: $MODEL_DIR"
 fi
