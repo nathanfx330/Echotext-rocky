@@ -9,6 +9,7 @@ import '../models/voice_model.dart';
 import '../services/kokoro_service.dart';
 import '../controllers/highlighting_text_controller.dart';
 import '../utils/text_helpers.dart';
+import '../utils/voice_favorites.dart';
 import '../widgets/dialogs/magic_cleaner_dialog.dart';
 import '../widgets/sheets/settings_sheet.dart';
 import '../widgets/editor/search_bar_header.dart';
@@ -58,6 +59,7 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
   
   String _voiceId = '';
   VoiceModel? _selectedVoice;
+  Set<String> _favoriteVoices = VoiceFavorites.restore(null);
   double _speechSpeed = 1.0;
   String? _engineError;
 
@@ -79,6 +81,9 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
     _textController.text = _prefs.getString('saved_text') ?? '';
     _lastSavedText = _textController.text;
     _speechSpeed = _prefs.getDouble('speech_speed') ?? 1.0;
+    _favoriteVoices = VoiceFavorites.restore(
+      _prefs.getStringList(VoiceFavorites.preferencesKey),
+    );
 
     _textController.addListener(() {
       if (_textController.text != _lastSavedText) {
@@ -468,6 +473,14 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
     }
   }
 
+  void _toggleFavorite(String voiceId) {
+    final updated = Set<String>.from(_favoriteVoices);
+    if (!updated.add(voiceId)) updated.remove(voiceId);
+    setState(() => _favoriteVoices = updated);
+    final stored = updated.toList()..sort();
+    unawaited(_prefs.setStringList(VoiceFavorites.preferencesKey, stored));
+  }
+
   void _showSettingsSheet() {
     showModalBottomSheet(
       context: context,
@@ -478,19 +491,24 @@ class _EchoTextScreenState extends State<EchoTextScreen> {
           return SettingsSheet(
             selectedVoice: _selectedVoice,
             availableVoices: _kokoroService.availableVoices,
+            favoriteVoices: _favoriteVoices,
             speechSpeed: _speechSpeed,
-                onVoiceSelected: (newVoice) {
-              setSheetState(() => _selectedVoice = newVoice);
+            onVoiceSelected: (newVoice) {
+              setSheetState(() {});
               setState(() {
                 _selectedVoice = newVoice;
                 _voiceId = newVoice.path;
               });
-              _prefs.setString('kokoro_voice', newVoice.path);
+              unawaited(_prefs.setString('kokoro_voice', newVoice.path));
+            },
+            onFavoriteToggled: (voiceId) {
+              _toggleFavorite(voiceId);
+              if (context.mounted) setSheetState(() {});
             },
             onSpeedChanged: (val) {
-              setSheetState(() => _speechSpeed = val);
+              setSheetState(() {});
               setState(() => _speechSpeed = val);
-              _prefs.setDouble('speech_speed', val);
+              unawaited(_prefs.setDouble('speech_speed', val));
             },
           );
         });

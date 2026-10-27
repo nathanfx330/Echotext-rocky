@@ -1,5 +1,15 @@
 # EchoText Rocky
 
+## Favorite Kokoro voices
+
+Open **Settings → Voice** to browse and search the Kokoro voice bank.
+Use the star next to any voice in the picker, or star the current voice
+directly from Settings. Favorites always sort to the top, and **Starred only**
+filters the list. Favorites persist in SharedPreferences under
+`kokoro_favorite_voices` (stored as stable Kokoro voice IDs). On a fresh
+installation, `af_heart` starts starred; removing it stays removed after
+restarting. This feature does not change voice model files or the Conda runtime.
+
 ## Kokoro migration: CPU-only runtime stage (Rocky 8.10)
 
 The primary TTS engine is now **Kokoro ONNX**. The original Piper service file
